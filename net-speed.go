@@ -81,33 +81,51 @@ func getNetworkBytes(path string) int {
 	return bytes
 }
 
-func convertBytesToBitsPerSecond(bytesPerSecond float64, duration float64) float64 {
-	mbps := bytesPerSecond * 8 / float64(1000000) / duration
+func convertBytesToBitsPerSecond(bps float64) float64 {
+	mbps := bps * 8.0 / 1000000.0
 	return mbps
 }
 
-func updateValues(rxBytes int, txBytes int, time time.Time) {
+func updateNetworkStats(rxBytes int, txBytes int, time time.Time) {
 	lastTime = time
 	lastRxBytes = rxBytes
 	lastTxBytes = txBytes
 }
 
+func getTimeDuration(now time.Time) time.Duration {
+	duration := now.Sub(lastTime)
+	return duration
+}
+
+func calculateNewBytesTransferred(rxBytes int, txBytes int) (int, int) {
+	rx := rxBytes - lastRxBytes
+	tx := txBytes - lastTxBytes
+
+	return rx, tx
+}
+
+func calculateBytesPerSecond(bytes int, seconds float64) float64 {
+	return float64(bytes) / seconds
+}
+
 func getMbps() (float64, float64) {
 	now := time.Now()
+	duration := getTimeDuration(now)
 
 	rxBytes := getNetworkBytes(rxPath)
 	txBytes := getNetworkBytes(txPath)
 
-	elapsed := now.Sub(lastTime)
-
 	rxMbps := 0.0
 	txMbps := 0.0
-	if elapsed.Seconds() > 0 {
-		rxMbps = convertBytesToBitsPerSecond(float64(rxBytes-lastRxBytes), elapsed.Seconds())
-		txMbps = convertBytesToBitsPerSecond(float64(txBytes-lastTxBytes), elapsed.Seconds())
+	if duration.Seconds() > 0 {
+		rx, tx := calculateNewBytesTransferred(rxBytes, txBytes)
+		rxBytesPerSecond := calculateBytesPerSecond(rx, duration.Seconds())
+		txBytesPerSecond := calculateBytesPerSecond(tx, duration.Seconds())
+		rxMbps = convertBytesToBitsPerSecond(rxBytesPerSecond)
+		txMbps = convertBytesToBitsPerSecond(txBytesPerSecond)
 	}
 
-	updateValues(rxBytes, txBytes, now)
+	updateNetworkStats(rxBytes, txBytes, now)
 
 	return rxMbps, txMbps
 }
