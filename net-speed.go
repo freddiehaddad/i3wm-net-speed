@@ -146,6 +146,34 @@ func generateOutput(prefix string, suffix string, i3Entries *[]I3Entry) string {
 	return output
 }
 
+func generateI3Entries(entries *[]*I3Entry) []I3Entry {
+	i3Entries := []I3Entry{}
+
+	for _, entry := range *entries {
+		if entry.Name == "ethernet" {
+			rxMbps, txMbps := getMbps()
+			fullText := fmt.Sprintf("R: %0.2f T: %0.2f (Mbit/s)", rxMbps, txMbps)
+			netSpeed := I3Entry{
+				FullText: fullText,
+			}
+			i3Entries = append(i3Entries, netSpeed)
+		}
+		i3Entries = append(i3Entries, *entry)
+	}
+
+	return i3Entries
+}
+
+func processFirstEvent() {
+	// First entry
+	// [{"name":"memory","markup":"none","full_text":"Mem: 3.1 GiB / 31.1 GiB"},{"name":"load","markup":"none","full_text":"CPU: 0.32"},{"name":"cpu_temperature","instance":"/sys/devices/platform/coretemp.0/hwmon/hwmon2/temp1_input","markup":"none","full_text":"T: 26 °C"},{"name":"ethernet","instance":"enp4s0","color":"#00FF00","markup":"none","full_text":"E: 192.168.1.150 (1000 Mbit/s)"},{"name":"tztime","instance":"local","markup":"none","full_text":"2022-10-21 20:15:46"}]
+	event := getEvent()
+	events := parseEvent(event)
+	i3Entries := generateI3Entries(&events)
+	output := generateOutput("[", "]", &i3Entries)
+	fmt.Println(output)
+}
+
 func init() {
 	reader = bufio.NewReader(os.Stdin)
 	lastTime = time.Now()
@@ -155,47 +183,16 @@ func init() {
 
 func main() {
 	processHeader()
-
-	// First entry
-	// [{"name":"memory","markup":"none","full_text":"Mem: 3.1 GiB / 31.1 GiB"},{"name":"load","markup":"none","full_text":"CPU: 0.32"},{"name":"cpu_temperature","instance":"/sys/devices/platform/coretemp.0/hwmon/hwmon2/temp1_input","markup":"none","full_text":"T: 26 °C"},{"name":"ethernet","instance":"enp4s0","color":"#00FF00","markup":"none","full_text":"E: 192.168.1.150 (1000 Mbit/s)"},{"name":"tztime","instance":"local","markup":"none","full_text":"2022-10-21 20:15:46"}]
-	event := getEvent()
-	events := parseEvent(event)
-
-	i3Entries := []I3Entry{}
-	for _, entry := range events {
-		if entry.Name == "ethernet" {
-			netSpeed := I3Entry{
-				FullText: "R: 0.00 T: 0.00 (Mbit/s)",
-			}
-			i3Entries = append(i3Entries, netSpeed)
-		}
-		i3Entries = append(i3Entries, *entry)
-	}
-
-	output := generateOutput("[", "]", &i3Entries)
-	fmt.Println(output)
+	processFirstEvent()
 
 	// Main loop
 	for {
 		// Get i3Status input
-		event = getEvent()
+		event := getEvent()
 		// ,[{"name":"memory","markup":"none","full_text":"Mem: 3.6 GiB / 31.1 GiB"},{"name":"load","markup":"none","full_text":"CPU: 0.45"},{"name":"cpu_temperature","instance":"/sys/devices/platform/coretemp.0/hwmon/hwmon2/temp1_input","markup":"none","full_text":"T: 26 °C"},{"name":"ethernet","instance":"enp4s0","color":"#00FF00","markup":"none","full_text":"E: 192.168.1.150 (1000 Mbit/s)"},{"name":"tztime","instance":"local","markup":"none","full_text":"2022-10-21 21:41:20"}]
 		event = strings.TrimLeft(event, ",")
-		events = parseEvent(event)
-
-		i3Entries := []I3Entry{}
-		for _, entry := range events {
-			if entry.Name == "ethernet" {
-				rxMbps, txMbps := getMbps()
-				fullText := fmt.Sprintf("R: %0.2f T: %0.2f (Mbit/s)", rxMbps, txMbps)
-				netSpeed := I3Entry{
-					FullText: fullText,
-				}
-				i3Entries = append(i3Entries, netSpeed)
-			}
-			i3Entries = append(i3Entries, *entry)
-		}
-
+		events := parseEvent(event)
+		i3Entries := generateI3Entries(&events)
 		output := generateOutput(",[", "]", &i3Entries)
 		fmt.Println(output)
 	}
