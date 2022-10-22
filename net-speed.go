@@ -165,7 +165,7 @@ func main() {
 	for _, entry := range events {
 		if entry.Name == "ethernet" {
 			netSpeed := I3Entry{
-				FullText: "R: 0.0 T: 0.0 (Mbit/s)",
+				FullText: "R: 0.00 T: 0.00 (Mbit/s)",
 			}
 			i3Entries = append(i3Entries, netSpeed)
 		}
