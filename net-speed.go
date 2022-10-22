@@ -31,7 +31,7 @@ var lastTxBytes int
 //
 // {"version":1}
 // [
-func preProcess() {
+func processHeader() {
 	// Preprocessing
 	preProcessLines := 2
 	for i := 0; i < preProcessLines; i++ {
@@ -154,7 +154,7 @@ func init() {
 }
 
 func main() {
-	preProcess()
+	processHeader()
 
 	// First entry
 	// [{"name":"memory","markup":"none","full_text":"Mem: 3.1 GiB / 31.1 GiB"},{"name":"load","markup":"none","full_text":"CPU: 0.32"},{"name":"cpu_temperature","instance":"/sys/devices/platform/coretemp.0/hwmon/hwmon2/temp1_input","markup":"none","full_text":"T: 26 °C"},{"name":"ethernet","instance":"enp4s0","color":"#00FF00","markup":"none","full_text":"E: 192.168.1.150 (1000 Mbit/s)"},{"name":"tztime","instance":"local","markup":"none","full_text":"2022-10-21 20:15:46"}]
