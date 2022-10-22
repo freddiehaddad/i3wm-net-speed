@@ -40,7 +40,7 @@ func preProcess() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Printf(line)
+		fmt.Print(line)
 	}
 }
 
