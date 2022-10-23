@@ -18,8 +18,8 @@ type I3Entry struct {
 }
 
 const (
-	rxPath = "/sys/class/net/enp4s0/statistics/rx_bytes"
-	txPath = "/sys/class/net/enp4s0/statistics/tx_bytes"
+	rxPath = "/sys/class/net/enp3s0/statistics/rx_bytes"
+	txPath = "/sys/class/net/enp3s0/statistics/tx_bytes"
 )
 
 var reader *bufio.Reader
