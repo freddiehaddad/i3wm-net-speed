@@ -15,6 +15,7 @@ type I3Entry struct {
 	Instance string `json:"instance"`
 	Markup   string `json:"markup"`
 	FullText string `json:"full_text"`
+	Color    string `json:"color"`
 }
 
 const (
