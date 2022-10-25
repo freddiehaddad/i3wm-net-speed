@@ -54,8 +54,8 @@ func getEvent() string {
 	return line
 }
 
-func parseEvent(event string) []*I3Entry {
-	var events []*I3Entry
+func parseEvent(event string) []I3Entry {
+	events := make([]I3Entry, 0)
 	bytes := []byte(event)
 	err := json.Unmarshal(bytes, &events)
 	if err != nil {
@@ -109,7 +109,15 @@ func calculateBytesPerSecond(bytes int, seconds float64) float64 {
 	return float64(bytes) / seconds
 }
 
-func getMbps() (float64, float64) {
+func createNetworkEntry(rx float64, tx float64) I3Entry {
+	fullText := fmt.Sprintf("R: %0.2f T: %0.2f (Mbit/s)", rx, tx)
+	entry := I3Entry{
+		FullText: fullText,
+	}
+	return entry
+}
+
+func calculateMbps(result chan<- I3Entry) {
 	now := time.Now()
 	duration := getTimeDuration(now)
 
@@ -128,12 +136,13 @@ func getMbps() (float64, float64) {
 
 	updateNetworkStats(rxBytes, txBytes, now)
 
-	return rxMbps, txMbps
+	entry := createNetworkEntry(rxMbps, txMbps)
+	result <- entry
 }
 
-func generateOutput(prefix string, suffix string, i3Entries *[]I3Entry) string {
+func generateOutput(prefix string, suffix string, i3Entries []I3Entry) string {
 	output := prefix
-	for _, entry := range *i3Entries {
+	for _, entry := range i3Entries {
 		e, err := json.Marshal(entry)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -147,32 +156,41 @@ func generateOutput(prefix string, suffix string, i3Entries *[]I3Entry) string {
 	return output
 }
 
-func generateI3Entries(entries *[]*I3Entry) []I3Entry {
-	i3Entries := []I3Entry{}
-
-	for _, entry := range *entries {
-		if entry.Name == "ethernet" {
-			rxMbps, txMbps := getMbps()
-			fullText := fmt.Sprintf("R: %0.2f T: %0.2f (Mbit/s)", rxMbps, txMbps)
-			netSpeed := I3Entry{
-				FullText: fullText,
-			}
-			i3Entries = append(i3Entries, netSpeed)
-		}
-		i3Entries = append(i3Entries, *entry)
-	}
-
-	return i3Entries
-}
-
 func processFirstEvent() {
 	// First entry
 	// [{"name":"memory","markup":"none","full_text":"Mem: 3.1 GiB / 31.1 GiB"},{"name":"load","markup":"none","full_text":"CPU: 0.32"},{"name":"cpu_temperature","instance":"/sys/devices/platform/coretemp.0/hwmon/hwmon2/temp1_input","markup":"none","full_text":"T: 26 °C"},{"name":"ethernet","instance":"enp4s0","color":"#00FF00","markup":"none","full_text":"E: 192.168.1.150 (1000 Mbit/s)"},{"name":"tztime","instance":"local","markup":"none","full_text":"2022-10-21 20:15:46"}]
+	result := make(chan I3Entry)
+
+	// Get i3Status input
 	event := getEvent()
+	go func() {
+		calculateMbps(result)
+		close(result)
+	}()
 	events := parseEvent(event)
-	i3Entries := generateI3Entries(&events)
-	output := generateOutput("[", "]", &i3Entries)
+	entry := <-result
+	index := getIndex("ethernet", events)
+	events = insertEvent(entry, index, events)
+	output := generateOutput("[", "]", events)
 	fmt.Println(output)
+}
+
+func getIndex(key string, slice []I3Entry) int {
+	for i, e := range slice {
+		if e.Name == key {
+			return i
+		}
+	}
+	return -1
+}
+
+func insertEvent(entry I3Entry, index int, entries []I3Entry) []I3Entry {
+	if index < 0 || index == len(entries) {
+		return append(entries, entry)
+	}
+	entries = append(entries[:index+1], entries[index:]...)
+	entries[index] = entry
+	return entries
 }
 
 func init() {
@@ -188,13 +206,21 @@ func main() {
 
 	// Main loop
 	for {
+		result := make(chan I3Entry)
+
 		// Get i3Status input
 		event := getEvent()
+		go func() {
+			calculateMbps(result)
+			close(result)
+		}()
 		// ,[{"name":"memory","markup":"none","full_text":"Mem: 3.6 GiB / 31.1 GiB"},{"name":"load","markup":"none","full_text":"CPU: 0.45"},{"name":"cpu_temperature","instance":"/sys/devices/platform/coretemp.0/hwmon/hwmon2/temp1_input","markup":"none","full_text":"T: 26 °C"},{"name":"ethernet","instance":"enp4s0","color":"#00FF00","markup":"none","full_text":"E: 192.168.1.150 (1000 Mbit/s)"},{"name":"tztime","instance":"local","markup":"none","full_text":"2022-10-21 21:41:20"}]
 		event = strings.TrimLeft(event, ",")
 		events := parseEvent(event)
-		i3Entries := generateI3Entries(&events)
-		output := generateOutput(",[", "]", &i3Entries)
+		entry := <-result
+		index := getIndex("ethernet", events)
+		events = insertEvent(entry, index, events)
+		output := generateOutput(",[", "]", events)
 		fmt.Println(output)
 	}
 }
